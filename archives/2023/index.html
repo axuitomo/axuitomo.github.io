@@ -31,6 +31,8 @@
 
 
 
+<script src="/js/lib/search.js"></script>
+
 
 
 <link rel="stylesheet" href="/css/main.css" />
@@ -144,6 +146,8 @@
                 
 <div id="archives">
     
+    <input id="search-bar" class="input" placeholder="搜索" v-model="rawSearch" />
+    
     <div id="timeline-wrap" ref="timeline">
         
         <div class="timeline" data-title="bt文件下载">
@@ -164,7 +168,7 @@
                         
                         <span class="tag">
                             
-                            <a href="/tags/%E4%B8%8B%E8%BD%BD/" style="color: #ffa2c4">下载</a>
+                            <a href="/tags/%E4%B8%8B%E8%BD%BD/" style="color: #00a596">下载</a>
                         </span>
                         
                     </span>
