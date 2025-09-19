@@ -1,0 +1,210 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Capillary Action Simulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            margin: 10px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="range"], select {
+            width: 100%;
+        }
+        .output {
+            text-align: center;
+            font-size: 18px;
+            margin: 10px 0;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            display: block;
+            margin: 0 auto;
+        }
+        .formula {
+            text-align: center;
+            font-style: italic;
+            color: #666;
+            margin-top: 10px;
+        }
+    </style>
+    <script type="text/javascript" async
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML">
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>毛细现象交互模拟</h1>
+        <div class="formula">\[ h = \frac{2 \sigma \cos \theta}{\rho g r} \]</div>
+        <p style="text-align: center; color: #666;">其中：σ - 表面张力，θ - 接触角（浸润程度），r - 毛细管半径（直径 d = 2r），ρ = <span id="rhoValue">1000</span> kg/m³（当前液体密度），g = 9.81 m/s²</p >
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="liquid">液体类型:</label>
+                <select id="liquid">
+                    <option value="water">水</option>
+                    <option value="mercury">水银</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="sigma">表面张力系数 σ (N/m): <span id="sigmaValue">0.072</span></label>
+                <input type="range" id="sigma" min="0.01" max="0.5" step="0.001" value="0.072">
+            </div>
+            <div class="control-group">
+                <label for="diameter">毛细管直径 d (mm): <span id="diameterValue">1</span></label>
+                <input type="range" id="diameter" min="0.1" max="10" step="0.1" value="1">
+            </div>
+            <div class="control-group">
+                <label for="theta">浸润程度（接触角 θ (°)): <span id="thetaValue">0</span></label>
+                <input type="range" id="theta" min="0" max="180" step="1" value="0">
+            </div>
+        </div>
+        
+        <div class="output">
+            液体上升高度 h: <span id="height">约 2.94 cm</span>
+        </div>
+        
+        <canvas id="canvas" width="400" height="500"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const liquidSelect = document.getElementById('liquid');
+        const sigmaSlider = document.getElementById('sigma');
+        const diameterSlider = document.getElementById('diameter');
+        const thetaSlider = document.getElementById('theta');
+        const sigmaValue = document.getElementById('sigmaValue');
+        const diameterValue = document.getElementById('diameterValue');
+        const thetaValue = document.getElementById('thetaValue');
+        const heightSpan = document.getElementById('height');
+        const rhoValue = document.getElementById('rhoValue');
+
+        // 常量
+        let RHO = 1000; // kg/m³
+        const G = 9.81; // m/s²
+        const SCALE = 10; // 像素/mm 缩放（用于可视化）
+
+        function updateLiquid() {
+            if (liquidSelect.value === 'water') {
+                RHO = 1000;
+                sigmaSlider.value = 0.072;
+                thetaSlider.value = 0;
+                rhoValue.textContent = '1000';
+            } else {
+                RHO = 13600;
+                sigmaSlider.value = 0.485;
+                thetaSlider.value = 140;
+                rhoValue.textContent = '13600';
+            }
+            sigmaValue.textContent = sigmaSlider.value;
+            thetaValue.textContent = thetaSlider.value;
+            calculateHeight();
+            draw();
+        }
+
+        function updateValues() {
+            sigmaValue.textContent = sigmaSlider.value;
+            diameterValue.textContent = diameterSlider.value;
+            thetaValue.textContent = thetaSlider.value;
+        }
+
+        function calculateHeight() {
+            const sigma = parseFloat(sigmaSlider.value);
+            const d = parseFloat(diameterSlider.value) / 1000; // mm to m
+            const r = d / 2;
+            const theta = parseFloat(thetaSlider.value) * Math.PI / 180; // degrees to radians
+            let h = (2 * sigma * Math.cos(theta)) / (RHO * G * r); // in meters
+            const hCm = Math.max(0, h * 100); // to cm, no negative
+            heightSpan.textContent = `约 ${hCm.toFixed(2)} cm`;
+            return h * 1000 * SCALE; // to pixels for drawing (mm * scale)
+        }
+
+        function getLiquidColor() {
+            return liquidSelect.value === 'water' ? '#4A90E2' : '#C0C0C0';
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 根据直径动态调整管宽
+            const dMm = parseFloat(diameterSlider.value);
+            const tubeWidth = Math.max(5, dMm * SCALE); // 最小宽度5px
+            const tubeX = (canvas.width - tubeWidth) / 2;
+            const tubeBottomY = canvas.height - 50;
+            
+            // 绘制毛细管（垂直矩形）
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(tubeX, 50, tubeWidth, tubeBottomY - 50);
+
+            // 底部液体储备
+            const liquidColor = getLiquidColor();
+            ctx.fillStyle = liquidColor;
+            ctx.fillRect(0, tubeBottomY, canvas.width, canvas.height - tubeBottomY);
+
+            // 计算并绘制液体上升（仅正值）
+            const hPixels = Math.min(calculateHeight(), tubeBottomY - 50);
+            if (hPixels > 0) {
+                ctx.fillStyle = liquidColor;
+                ctx.fillRect(tubeX, tubeBottomY - hPixels, tubeWidth, hPixels);
+            }
+
+            // 标签
+            ctx.fillStyle = '#000';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('毛细管', canvas.width / 2, 40);
+            ctx.fillText('液体储备', canvas.width / 2, canvas.height - 10);
+        }
+
+        // 事件监听
+        liquidSelect.addEventListener('change', updateLiquid);
+        sigmaSlider.addEventListener('input', () => {
+            updateValues();
+            draw();
+        });
+        diameterSlider.addEventListener('input', () => {
+            updateValues();
+            draw();
+        });
+        thetaSlider.addEventListener('input', () => {
+            updateValues();
+            draw();
+        });
+
+        // 初始化
+        updateLiquid();
+        draw();
+    </script>
+</body>
+</html>
+```
